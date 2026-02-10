@@ -1,0 +1,7 @@
+{
+  "name": "BullionTracker Pro",
+  "description": "A high-performance, self-hosted gold and silver price tracker with portfolio management, buy/hold indicators, and Australian seller comparison.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
