@@ -74,7 +74,8 @@ This project includes a production-ready Docker setup:
 
 - `web` container: builds Vite and serves static files via Nginx
 - `api` container: runs `server/index.mjs` on port `8787`
-- Nginx reverse proxy routes `/api/*` from `web` to `api`
+- `caddy` container: TLS reverse proxy on ports `80/443`
+- Hostname routing for `bulliontracker.home.arpa`
 
 ### Docker Prerequisites
 
@@ -96,9 +97,9 @@ Run from project root:
 docker compose up -d --build
 ```
 
-App URL:
+App URL (after DNS setup below):
 
-`http://<your-pi-ip>:3000`
+`https://bulliontracker.home.arpa`
 
 ### Stop / Restart
 
@@ -112,6 +113,7 @@ docker compose up -d
 ```
 docker compose logs -f web
 docker compose logs -f api
+docker compose logs -f caddy
 ```
 
 ### Docker Files Included
@@ -120,6 +122,7 @@ docker compose logs -f api
 - `Dockerfile.web`
 - `Dockerfile.api`
 - `nginx.conf`
+- `Caddyfile`
 - `.dockerignore`
 
 ### Cache Tuning in Docker
@@ -132,6 +135,30 @@ COMPARISONS_CACHE_MS=86400000
 TICKER_CACHE_MS=60000
 FX_CACHE_MS=60000
 ```
+
+### Local DNS Setup (Pi-hole)
+
+In Pi-hole, add a Local DNS A record:
+
+`bulliontracker.home.arpa -> 192.168.20.4`
+
+You can add more app names later on the same IP (for example `notes.home.arpa`, `photos.home.arpa`) and route each name in `Caddyfile`.
+
+### Trust HTTPS Certificate (One-time per Device)
+
+Because this is a local/private hostname, Caddy uses an internal CA. To remove browser "Not secure" warning, trust Caddy root certificate on each client device.
+
+1. Export certificate from container:
+
+```
+docker cp bulliontracker-caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+```
+
+2. Import `caddy-root.crt` into trusted root store on your device.
+
+After this, open:
+
+`https://bulliontracker.home.arpa`
 
 ## Deploy (Simple)
 

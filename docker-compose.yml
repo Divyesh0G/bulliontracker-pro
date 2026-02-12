@@ -21,6 +21,25 @@ services:
     container_name: bulliontracker-web
     depends_on:
       - api
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: bulliontracker-caddy
+    depends_on:
+      - web
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

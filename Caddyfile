@@ -1,0 +1,11 @@
+bulliontracker.home.arpa {
+    tls internal
+
+    handle /api/* {
+        reverse_proxy api:8787
+    }
+
+    handle {
+        reverse_proxy web:80
+    }
+}
