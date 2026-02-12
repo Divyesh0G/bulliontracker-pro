@@ -32,13 +32,13 @@ const Portfolio: React.FC<PortfolioProps> = ({ purchases, onAdd, onDelete, curre
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-black tracking-tight">Your Inventory</h2>
+        <h2 className="text-2xl font-black tracking-tight">Inventory Ledger</h2>
         <button 
           onClick={() => setIsAdding(!isAdding)}
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
         >
           {isAdding ? <ICONS.Trash2 size={18} /> : <ICONS.Plus size={18} />}
-          {isAdding ? 'Cancel' : 'Add New Asset'}
+          {isAdding ? 'Cancel' : 'Record Position'}
         </button>
       </div>
 
@@ -111,7 +111,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ purchases, onAdd, onDelete, curre
           </div>
           <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-3 pt-2">
             <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition-all">
-              Confirm Purchase
+              Save Entry
             </button>
           </div>
         </form>
@@ -124,7 +124,7 @@ const Portfolio: React.FC<PortfolioProps> = ({ purchases, onAdd, onDelete, curre
             <div className="bg-slate-100 dark:bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <ICONS.Coins size={32} className="text-slate-400" />
             </div>
-            <p className="font-bold text-slate-500 italic">Your vault is currently empty.</p>
+            <p className="font-bold text-slate-500 italic">No inventory entries yet for this account.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-4">

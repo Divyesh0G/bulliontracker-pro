@@ -1,0 +1,15 @@
+{
+  "users": [
+    {
+      "id": "b7da3c3607a2ce910dc6bd1a",
+      "name": "dav",
+      "email": "test@xyz.com",
+      "passwordSalt": "f0ab2fa8f6a69390fb251846ed762d83",
+      "passwordHash": "ac9ce0bc88e1ce673079861b0ce979e17b7f16daf04a61ee20b8356d7f5f87e521fd3f12be16666167b8264b4017fcad1a11c09ac75cbdae3ae82c787037901f",
+      "createdAt": "2026-02-12T11:58:58.640Z"
+    }
+  ],
+  "purchasesByUser": {
+    "b7da3c3607a2ce910dc6bd1a": []
+  }
+}

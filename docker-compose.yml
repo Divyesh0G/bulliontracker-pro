@@ -6,10 +6,13 @@ services:
     container_name: bulliontracker-api
     environment:
       PORT: 8787
+      DATA_DIR: /data
       PRICES_CACHE_MS: 60000
       COMPARISONS_CACHE_MS: 86400000
       TICKER_CACHE_MS: 60000
       FX_CACHE_MS: 60000
+    volumes:
+      - api_data:/data
     expose:
       - "8787"
     restart: unless-stopped
@@ -56,5 +59,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  api_data:
   caddy_data:
   caddy_config:

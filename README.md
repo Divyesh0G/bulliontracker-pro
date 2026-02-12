@@ -1,12 +1,13 @@
-# BullionTracker Pro
+# BullionTracker-Pro
 
-BullionTracker Pro is a modern bullion portfolio tracker with live spot pricing, seller comparisons, and performance analytics.
+BullionTracker-Pro is a multi-user bullion operations console for live spot tracking, dealer quote benchmarking, and private inventory management.
 
 ## Features
 
 - Live spot prices (USD/AUD/INR) from Yahoo Finance
 - Seller comparison cards with AUD pricing and currency conversion
-- Portfolio tracking with profit/loss stats
+- Secure login with user-isolated inventory records
+- Portfolio tracking with performance analytics
 - Daily cached seller data with fast UI refresh
 - Docker deployment for Raspberry Pi / DietPi
 
@@ -37,10 +38,11 @@ Open the app at `http://localhost:3000`.
 
 ## Environment Variables
 
-Create a `.env.local` in the project root (kept out of git) if you want AI analysis:
+Optional server overrides:
 
 ```
-GEMINI_API_KEY=your_api_key_here
+DATA_DIR=./data
+SESSION_TTL_MS=604800000
 ```
 
 ## API Endpoints
@@ -48,6 +50,13 @@ GEMINI_API_KEY=your_api_key_here
 - `GET /api/prices` - Live spot prices (USD, AUD, INR)
 - `GET /api/fx` - FX rates used for conversions
 - `GET /api/comparisons` - Seller offers (AUD)
+- `POST /api/auth/register` - Create user account
+- `POST /api/auth/login` - Login and receive bearer token
+- `GET /api/auth/me` - Fetch current user profile
+- `POST /api/auth/logout` - Invalidate current token
+- `GET /api/purchases` - Fetch authenticated user portfolio
+- `POST /api/purchases` - Add authenticated user purchase
+- `DELETE /api/purchases/:id` - Delete authenticated user purchase
 
 ## Cache Configuration
 
@@ -58,6 +67,7 @@ PRICES_CACHE_MS=60000
 COMPARISONS_CACHE_MS=86400000
 TICKER_CACHE_MS=60000
 FX_CACHE_MS=60000
+SESSION_TTL_MS=604800000
 ```
 
 ## Build for Production

@@ -1,5 +1,8 @@
 import { createServer } from "node:http";
 import { URL } from "node:url";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 
 const METAL_TICKERS = {
   // Prefer spot, fall back to futures if spot pair is unavailable.
@@ -28,6 +31,14 @@ let cachedComparisons = null;
 let comparisonsFetchedAt = 0;
 let cachedFx = null;
 let fxFetchedAt = 0;
+
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(process.cwd(), "data");
+const STORE_FILE = path.join(DATA_DIR, "store.json");
+const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS ?? 604_800_000);
+const sessions = new Map();
+let storeCache = null;
 
 const SELLERS = [
   {
@@ -117,9 +128,119 @@ const sendJson = (res, statusCode, body) => {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
   res.end(JSON.stringify(body));
+};
+
+const readJsonBody = async (req) => {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
+  if (!raw) {
+    return {};
+  }
+  return JSON.parse(raw);
+};
+
+const normalizeEmail = (email = "") => email.trim().toLowerCase();
+
+const sanitizeUser = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  createdAt: user.createdAt,
+});
+
+const hashPassword = (password, salt = randomBytes(16).toString("hex")) => {
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return { salt, hash };
+};
+
+const isPasswordValid = (password, salt, expectedHash) => {
+  const computedHash = scryptSync(password, salt, 64);
+  const storedHash = Buffer.from(expectedHash, "hex");
+  if (computedHash.length !== storedHash.length) {
+    return false;
+  }
+  return timingSafeEqual(computedHash, storedHash);
+};
+
+const ensureStore = async () => {
+  if (storeCache) {
+    return storeCache;
+  }
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  try {
+    const raw = await fs.readFile(STORE_FILE, "utf8");
+    storeCache = JSON.parse(raw);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+    storeCache = { users: [], purchasesByUser: {} };
+    await fs.writeFile(STORE_FILE, JSON.stringify(storeCache, null, 2), "utf8");
+  }
+  if (!storeCache.users) {
+    storeCache.users = [];
+  }
+  if (!storeCache.purchasesByUser) {
+    storeCache.purchasesByUser = {};
+  }
+  return storeCache;
+};
+
+const persistStore = async () => {
+  const store = await ensureStore();
+  await fs.writeFile(STORE_FILE, JSON.stringify(store, null, 2), "utf8");
+};
+
+const createSession = (userId) => {
+  const token = randomBytes(32).toString("hex");
+  sessions.set(token, { userId, expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+};
+
+const clearExpiredSessions = () => {
+  const now = Date.now();
+  for (const [token, session] of sessions.entries()) {
+    if (session.expiresAt <= now) {
+      sessions.delete(token);
+    }
+  }
+};
+
+const getTokenFromRequest = (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+  return authHeader.slice("Bearer ".length).trim();
+};
+
+const getCurrentUser = async (req) => {
+  clearExpiredSessions();
+  const token = getTokenFromRequest(req);
+  if (!token) {
+    return null;
+  }
+  const session = sessions.get(token);
+  if (!session) {
+    return null;
+  }
+  if (session.expiresAt <= Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+  const store = await ensureStore();
+  const user = store.users.find((entry) => entry.id === session.userId);
+  if (!user) {
+    sessions.delete(token);
+    return null;
+  }
+  return { token, user };
 };
 
 const getLastNumericValue = (values = []) => {
@@ -728,6 +849,151 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/auth/register") {
+      const body = await readJsonBody(req);
+      const name = String(body.name || "").trim();
+      const email = normalizeEmail(body.email);
+      const password = String(body.password || "");
+
+      if (name.length < 2 || !email.includes("@") || password.length < 8) {
+        sendJson(res, 400, { error: "Name, email, and password (8+ chars) are required." });
+        return;
+      }
+
+      const store = await ensureStore();
+      if (store.users.some((user) => user.email === email)) {
+        sendJson(res, 409, { error: "Account already exists for this email." });
+        return;
+      }
+
+      const { salt, hash } = hashPassword(password);
+      const user = {
+        id: randomBytes(12).toString("hex"),
+        name,
+        email,
+        passwordSalt: salt,
+        passwordHash: hash,
+        createdAt: new Date().toISOString(),
+      };
+      store.users.push(user);
+      store.purchasesByUser[user.id] = [];
+      await persistStore();
+
+      const token = createSession(user.id);
+      sendJson(res, 201, { token, user: sanitizeUser(user) });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/auth/login") {
+      const body = await readJsonBody(req);
+      const email = normalizeEmail(body.email);
+      const password = String(body.password || "");
+      const store = await ensureStore();
+      const user = store.users.find((entry) => entry.email === email);
+
+      if (!user || !isPasswordValid(password, user.passwordSalt, user.passwordHash)) {
+        sendJson(res, 401, { error: "Invalid email or password." });
+        return;
+      }
+
+      const token = createSession(user.id);
+      sendJson(res, 200, { token, user: sanitizeUser(user) });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/auth/me") {
+      const session = await getCurrentUser(req);
+      if (!session) {
+        sendJson(res, 401, { error: "Unauthorized" });
+        return;
+      }
+      sendJson(res, 200, { user: sanitizeUser(session.user) });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/auth/logout") {
+      const token = getTokenFromRequest(req);
+      if (token) {
+        sessions.delete(token);
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/purchases") {
+      const session = await getCurrentUser(req);
+      if (!session) {
+        sendJson(res, 401, { error: "Unauthorized" });
+        return;
+      }
+      const store = await ensureStore();
+      const purchases = store.purchasesByUser[session.user.id] || [];
+      sendJson(res, 200, purchases);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/purchases") {
+      const session = await getCurrentUser(req);
+      if (!session) {
+        sendJson(res, 401, { error: "Unauthorized" });
+        return;
+      }
+      const body = await readJsonBody(req);
+      const purchase = {
+        id: randomBytes(9).toString("hex"),
+        metal: body.metal,
+        form: body.form,
+        weight: Number(body.weight),
+        pricePaid: Number(body.pricePaid),
+        currency: body.currency,
+        date: body.date,
+        seller: String(body.seller || ""),
+      };
+
+      if (
+        !["Gold", "Silver", "Platinum", "Palladium"].includes(purchase.metal) ||
+        !["Coin", "Bar", "Nugget", "Other"].includes(purchase.form) ||
+        !["USD", "AUD", "INR"].includes(purchase.currency) ||
+        !Number.isFinite(purchase.weight) ||
+        purchase.weight <= 0 ||
+        !Number.isFinite(purchase.pricePaid) ||
+        purchase.pricePaid < 0 ||
+        typeof purchase.date !== "string"
+      ) {
+        sendJson(res, 400, { error: "Invalid purchase payload." });
+        return;
+      }
+
+      const store = await ensureStore();
+      if (!store.purchasesByUser[session.user.id]) {
+        store.purchasesByUser[session.user.id] = [];
+      }
+      store.purchasesByUser[session.user.id].push(purchase);
+      await persistStore();
+      sendJson(res, 201, purchase);
+      return;
+    }
+
+    if (req.method === "DELETE" && url.pathname.startsWith("/api/purchases/")) {
+      const session = await getCurrentUser(req);
+      if (!session) {
+        sendJson(res, 401, { error: "Unauthorized" });
+        return;
+      }
+      const id = decodeURIComponent(url.pathname.replace("/api/purchases/", ""));
+      const store = await ensureStore();
+      const current = store.purchasesByUser[session.user.id] || [];
+      const next = current.filter((entry) => entry.id !== id);
+      if (next.length === current.length) {
+        sendJson(res, 404, { error: "Purchase not found." });
+        return;
+      }
+      store.purchasesByUser[session.user.id] = next;
+      await persistStore();
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/health") {
       sendJson(res, 200, { status: "ok", service: "bulliontracker-api" });
       return;
@@ -748,6 +1014,34 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/comparisons") {
       const comparisons = await fetchAllSellerComparisons();
       sendJson(res, 200, comparisons);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/analysis") {
+      const body = await readJsonBody(req);
+      const currentPrice = Number(body.currentPrice);
+      const portfolio = Array.isArray(body.portfolio) ? body.portfolio : [];
+      const metal = String(body.metal || "");
+      const relevant = portfolio.filter((entry) => entry.metal === metal);
+      const totalWeight = relevant.reduce((sum, entry) => sum + Number(entry.weight || 0), 0);
+      const totalCost = relevant.reduce((sum, entry) => sum + Number(entry.pricePaid || 0), 0);
+      const avgPrice = totalWeight > 0 ? totalCost / (totalWeight / 31.1035) : 0;
+
+      let recommendation = "HOLD";
+      let reasoning = "No strong edge detected. Monitor price and continue disciplined allocation.";
+      if (avgPrice > 0 && currentPrice < avgPrice * 0.95) {
+        recommendation = "BUY";
+        reasoning = "Current spot is materially below your average entry, improving cost basis.";
+      } else if (avgPrice > 0 && currentPrice > avgPrice * 1.15) {
+        recommendation = "WAIT";
+        reasoning = "Spot is well above your average entry. Consider waiting for a better entry level.";
+      }
+
+      sendJson(res, 200, {
+        recommendation,
+        reasoning,
+        targetPrice: currentPrice * 0.98,
+      });
       return;
     }
 

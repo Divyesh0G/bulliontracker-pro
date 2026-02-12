@@ -51,3 +51,10 @@ export interface FxRates {
   source: string;
   tickers: Record<string, string>;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}

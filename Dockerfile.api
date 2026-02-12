@@ -5,6 +5,9 @@ WORKDIR /app
 COPY server ./server
 
 ENV PORT=8787
+ENV DATA_DIR=/data
+
+RUN mkdir -p /data && chown -R node:node /app /data
 
 EXPOSE 8787
 
