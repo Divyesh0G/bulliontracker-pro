@@ -1,7 +1,3 @@
-<div align="center">
-<img  />
-</div>
-
 # BullionTracker Pro
 
 BullionTracker Pro is a modern bullion portfolio tracker with live spot pricing, seller comparisons, and performance analytics.
