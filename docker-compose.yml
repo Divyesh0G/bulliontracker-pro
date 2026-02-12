@@ -34,10 +34,22 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    configs:
-      - source: caddyfile
-        target: /etc/caddy/Caddyfile
-        mode: 0444
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        cat > /etc/caddy/Caddyfile <<'EOF'
+        bulliontracker.home.arpa {
+            tls internal
+            handle /api/* {
+                reverse_proxy api:8787
+            }
+            handle {
+                reverse_proxy web:80
+            }
+        }
+        EOF
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -46,11 +58,3 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-
-configs:
-  caddyfile:
-    content: |
-      bulliontracker.home.arpa {
-          tls internal
-          reverse_proxy web:80
-      }
