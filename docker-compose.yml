@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: bulliontracker-api
+    environment:
+      PORT: 8787
+      PRICES_CACHE_MS: 60000
+      COMPARISONS_CACHE_MS: 86400000
+      TICKER_CACHE_MS: 60000
+      FX_CACHE_MS: 60000
+    expose:
+      - "8787"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: bulliontracker-web
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+    restart: unless-stopped
