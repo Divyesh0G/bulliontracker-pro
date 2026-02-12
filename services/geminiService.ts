@@ -2,7 +2,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { FxRates, Metal, MetalPrice, Purchase, ProductComparison } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const resolveGeminiApiKey = (): string | undefined => {
+  const viteKey = import.meta.env?.VITE_GEMINI_API_KEY;
+  if (viteKey) {
+    return viteKey;
+  }
+  // Keep compatibility with current Vite define replacement.
+  return (process as any)?.env?.API_KEY;
+};
+
+const getAiClient = (): GoogleGenAI | null => {
+  const apiKey = resolveGeminiApiKey();
+  if (!apiKey) {
+    return null;
+  }
+  try {
+    return new GoogleGenAI({ apiKey });
+  } catch (error) {
+    console.error("Failed to initialize Gemini client:", error);
+    return null;
+  }
+};
 
 export const fetchRealTimePrices = async (): Promise<MetalPrice[]> => {
   try {
@@ -57,6 +77,11 @@ export const getMarketAnalysis = async (
   `;
 
   try {
+    const ai = getAiClient();
+    if (!ai) {
+      return { recommendation: 'HOLD', reasoning: 'Gemini API key not configured.', targetPrice: currentPrice };
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
