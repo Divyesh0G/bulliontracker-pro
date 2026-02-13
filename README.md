@@ -1,4 +1,4 @@
-![Alt text](snap_shot/title.jpg)
+![Alt text](snap_shot/title.png)
 
 # BullionTracker-Pro
 
