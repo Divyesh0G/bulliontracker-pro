@@ -1,5 +1,18 @@
 ![Alt text](snap_shot/title.png)
 
+<details>
+<summary><b>More screenshots</b></summary>
+
+| Dashboard                             | Dealer Comparisons                         |
+| ------------------------------------- | ------------------------------------------ |
+| ![Dashboard](snap_shot/dashboard.png) | ![Comparisons](snap_shot/dealersQuote.png) |
+
+| Portfolio / Inventory / Login / Register | Spot Desk                        |
+| ---------------------------------------- | -------------------------------- |
+| ![Portfolio](snap_shot/inventory.png)    | ![Auth](snap_shot/spot_desk.png) |
+
+</details>
+
 # BullionTracker-Pro
 
 BullionTracker-Pro is a multi-user bullion operations console for live spot tracking, dealer quote benchmarking, and private inventory management.
