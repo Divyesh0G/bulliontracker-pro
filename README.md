@@ -1,4 +1,6 @@
-![Alt text](snap_shot/title.png)
+<p align="center">
+  <img src="snap_shot/title.png" alt="BullionTracker-Pro" width="100%"/>
+</p>
 
 <details>
 <summary><b>More screenshots</b></summary>
