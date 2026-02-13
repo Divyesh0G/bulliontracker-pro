@@ -17,7 +17,7 @@
 
 # BullionTracker-Pro
 
-BullionTracker-Pro is a multi-user bullion operations console for live spot tracking, dealer quote benchmarking, and private inventory management.
+**BullionTracker-Pro** is a multi-user bullion operations console for live spot tracking, dealer quote benchmarking, and private inventory management.
 
 ## Features
 
