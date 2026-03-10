@@ -58,6 +58,21 @@ services:
       - caddy_config:/config
     restart: unless-stopped
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: bulliontracker-cloudflared
+    depends_on:
+      - web
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CF_TUNNEL_TOKEN}
+    restart: unless-stopped
+
 volumes:
   api_data:
   caddy_data:

@@ -187,6 +187,48 @@ After this, open:
 
 `https://bulliontracker.home.arpa`
 
+## Cloudflare Tunnel (Public Domain)
+
+Option A: keep Caddy for local LAN (`bulliontracker.home.arpa`) and add Cloudflare Tunnel for your public domain.
+
+### What this does
+
+- Local users use `https://bulliontracker.home.arpa` via Caddy (internal TLS).
+- Public users use `https://<your-domain>` via Cloudflare edge TLS.
+- The tunnel forwards to the `web` container (HTTP) without exposing your Pi.
+
+### Setup Steps (Cloudflare Zero Trust)
+
+1. Create a tunnel in Cloudflare Zero Trust and generate a token.
+2. Create a DNS hostname for your app (e.g. `bulliontracker.yourdomain.com`).
+3. Set the service URL in Cloudflare to:
+
+`http://web:80`
+
+### Keep the Token Out of Git
+
+Create a `.env` file on the server only:
+
+```
+CF_TUNNEL_TOKEN=your_token_here
+```
+
+This file is ignored by git and picked up by Docker Compose.
+
+### Start the Tunnel
+
+```
+docker compose up -d --build
+```
+
+### Verify
+
+```
+docker compose logs -f cloudflared
+```
+
+If you use Portainer, add `CF_TUNNEL_TOKEN` in the Stack environment variables instead of `.env`.
+
 ## Deploy (Simple)
 
 Serve `dist/` with any static host and run the API server separately:
