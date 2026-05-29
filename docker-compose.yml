@@ -34,7 +34,7 @@ services:
     depends_on:
       - web
       - api
-    ports:
+    expose:
       - "80"
       - "443"
     command:
